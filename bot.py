@@ -5,8 +5,11 @@ import random
 import os
 # from mega import Mega
 # from telegram.constants import ChatAction
-
+from telegram import Bot
 BOT_TOKEN = "7892130919:AAEve83rfOhsodgHB0Er7lFhXz33hO9kAxk"
+bot = Bot(token=BOT_TOKEN)
+bot.delete_webhook(drop_pending_updates=True)
+print("Webhook deleted. Now you can run polling safely.")
 # Database initialization
 # Init DB
 init_db()
