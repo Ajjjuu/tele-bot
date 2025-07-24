@@ -1,9 +1,10 @@
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
 from db import init_db, Session, User, Media
 import random
 import os
-
+# from mega import Mega
+# from telegram.constants import ChatAction
 
 BOT_TOKEN = "7892130919:AAEve83rfOhsodgHB0Er7lFhXz33hO9kAxk"
 # Database initialization
@@ -13,7 +14,10 @@ init_db()
 # List of admin Telegram user IDs (as strings)
 ADMINS = ["1410698950"] 
 MAX_FILE_SIZE_MB = 49
+# MEGA_EMAIL = ''
+# MEGA_PASSWORD = ''
 
+print("Bot Started...")
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Initialize database session
     session = Session()
@@ -41,11 +45,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Close database session
     session.close()
 
-    # Define custom keyboard layout
+    # Define custom keyboard layout #addhere
     keyboard = [
         # Token and buy options
         ["/tokens", "/buy"],
         ["/nature", "/puppy", "/surprise"],
+        ["/photos_10", "/file_from_mega"],
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -63,7 +68,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Handle button presses from inline keyboards
+    # Handle button presses from inline keyboards #addhere
     query = update.callback_query
     await query.answer()
     if query.data == 'nature':
@@ -76,6 +81,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await buy(update, context)
     elif query.data == 'surprise':
         await surprise(update, context)
+    elif query.data == 'photos_10':
+        await photos_10(update, context)
+    # elif query.data == 'file_from_mega':
+    #     await file_from_mega(update, context)
+
+
 
 
 async def tokens(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -158,7 +169,7 @@ async def puppy(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def surprise(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Send a random surprise video
     # Define the path to the surprise videos folder, currently empty and needs to be updated
-    surprise_folder = ""
+    surprise_folder = "F:\\Tele\\Usable videos\\G Premium vidoes"
     print("Surprise", surprise_folder)
     video_files = [
             f for f in os.listdir(surprise_folder)
@@ -171,22 +182,97 @@ async def surprise(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         video_path = os.path.join(surprise_folder, random.choice(video_files))
         print("chosen file?", video_path)
-        await update.effective_message.reply_text("Sending a surprise...")
+        await update.effective_message.reply_text("🎁Sending a surprise...")
         with open(video_path, 'rb') as video_file:
             await context.bot.send_video(chat_id=update.effective_chat.id, video=video_file)
 
+
+async def photos_10(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    photos_dir = r"F:\\Tele\\Usable photos\\G Premium Photos"
+
+    if not os.path.exists(photos_dir):
+        await update.effective_message.reply_text("Photos directory not found.")
+        return
+
+    image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp')
+    photo_files = [f for f in os.listdir(photos_dir)
+                   if f.lower().endswith(image_extensions)]
+
+    if not photo_files:
+        await update.effective_message.reply_text("No photos found in the directory.")
+        return
+
+    total_photos = min(10, len(photo_files))
+    selected_photos = random.sample(photo_files, total_photos)
+
+    await update.effective_message.reply_text(f"📸 Sending {len(selected_photos)} random photos")
+
+    # Send up to 10 photos
+    for i in range(0, total_photos, 10):
+        group_files = selected_photos[i:i + 10]
+        media_group = []
+
+        for photo_file in group_files:
+            photo_path = os.path.join(photos_dir, photo_file)
+            try:
+                with open(photo_path, 'rb') as photo:
+                    # Need to reopen each time for InputMediaPhoto to work correctly
+                    media_group.append(InputMediaPhoto(media=photo.read()))
+            except Exception as e:
+                print(f"Error preparing photo {photo_file}: {e}")
+                await update.effective_message.reply_text(f"Failed to prepare photo: {photo_file}")
+
+        if media_group:
+            try:
+                await context.bot.send_media_group(chat_id=update.effective_chat.id, media=media_group)
+            except Exception as e:
+                print(f"Error sending media group: {e}")
+                await update.effective_message.reply_text("Failed to send one of the media groups.")
+
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Handle text messages and provide an inline keyboard with options
+    # Handle text messages and provide an inline keyboard with options #addhere
     keyboard = [
         [InlineKeyboardButton("🌿 Nature", callback_data='nature'), InlineKeyboardButton("🐶 Puppy", callback_data='puppy')],
         [InlineKeyboardButton("🪙 Tokens", callback_data='tokens'), InlineKeyboardButton("💳 Buy", callback_data='buy')],
-        [InlineKeyboardButton("🎁 Surprise", callback_data='surprise')]
+        [InlineKeyboardButton("🎁 Surprise", callback_data='surprise'), InlineKeyboardButton("📸 Photos 10", callback_data='photos_10')],
+        # [InlineKeyboardButton("Files from mega", callback_data='file_from_mega')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.effective_message.reply_text(
         "Hi! Here are some commands you can use:\n 👇 Choose an option:",
         reply_markup=reply_markup
     )
+
+# Not working
+# async def file_from_mega(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     await update.effective_message.reply_text("Fetching a random video from MEGA...")
+
+#     mega = Mega()
+#     m = mega.login(MEGA_EMAIL, MEGA_PASSWORD)
+#     print("Mega auth success", m.get_user)
+
+#     # Get all files from MEGA
+#     files = m.get_files()
+#     video_files = [f for f in files.values() if f['a']['n'].lower().endswith(('.mp4', '.mov', '.mkv'))]
+
+#     if not video_files:
+#         await update.message.reply_text("No video files found in your MEGA account.")
+#         return
+
+#     # Pick a random video file
+#     selected_video = random.choice(video_files)
+#     file_name = selected_video['a']['n']
+#     await update.message.reply_text(f"Selected: {file_name}")
+
+#     # Download the video file
+#     m.download(selected_video, dest_path=".")
+    
+#     # Notify user and upload to Telegram
+#     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_VIDEO)
+#     await context.bot.send_video(chat_id=update.effective_chat.id, video=open(file_name, 'rb'))
+
+#     # Cleanup
+#     os.remove(file_name)
 
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle unknown commands
@@ -205,12 +291,12 @@ async def users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(f"👥 Total registered users: {count}")
 
 # Initialize the Telegram bot application
-app = ApplicationBuilder().token(BOT_TOKEN).build()
+app = ApplicationBuilder().token(BOT_TOKEN).read_timeout(60).connect_timeout(60).build()
 
 # Add a handler for button presses from inline keyboards
 app.add_handler(CallbackQueryHandler(button_handler))
 
-# Add command handlers
+# Add command handlers #addhere
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("tokens", tokens))
 app.add_handler(CommandHandler("buy", buy))
@@ -219,6 +305,8 @@ app.add_handler(CommandHandler("upload", upload))
 app.add_handler(CommandHandler("nature", nature))
 app.add_handler(CommandHandler("puppy", puppy))
 app.add_handler(CommandHandler("surprise", surprise))
+app.add_handler(CommandHandler("photos_10", photos_10))
+# app.add_handler(CommandHandler("file_from_mega", file_from_mega))
 app.add_handler(CommandHandler("users", users))
 
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
